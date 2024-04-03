@@ -4,7 +4,7 @@ import numpy as np
 # Open a handle to the USB camera
 #choosing index 1 because we use a laptop with an external usb camera , that's why we choose the second camera 
 
-def open_camera(camera_index=0): 
+def open_camera(camera_index=1): 
     cap = cv2.VideoCapture(camera_index)
     if not cap.isOpened():
         print(f"No camera found at index {camera_index}- please reconnect your USB-camera")
@@ -45,9 +45,10 @@ class DetectedCircles:
 class DetectedRobot:
     def __init__(self, vertices):
         self.vertices = vertices  # A list of three points [(x1, y1), (x2, y2), (x3, y3)] cause it is a triangle
-            
         
-    
+# Create trackbars for color change
+# The arguments are: trackbarName, windowName, value, count, onChange
+
 #def detect(cap,robot_template):
 def detect(cap):
  balls_list = [] # List to store the deteced balls 
@@ -71,9 +72,9 @@ def detect(cap):
     edges = cv2.Canny(blurred, 50, 150)
     #_, thresholded = cv2.threshold(blurred, 220, 255, cv2.THRESH_BINARY)
 
-    # Detect circles using Hough Circles white Balls 
+    # Detect circles using Hough Circles
     circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, dp=1.2, minDist=50,
-                                param1=50, param2=30, minRadius=30, maxRadius=50)
+                                param1=50, param2=30, minRadius=5, maxRadius=30)
     # Draw circles on the original frame - UI for detection 
     if circles is not None:
         circles = np.uint16(np.around(circles))
@@ -86,9 +87,9 @@ def detect(cap):
             text_position = (i[0] - i[2], i[1] + i[2] + 10)
             cv2.putText(frame, circle_text, text_position, cv2.FONT_HERSHEY_SIMPLEX, 
                 0.5, (255, 255, 255), 1, cv2.LINE_AA)
-            balls_list.append(DetectedCircles(i[0], i[1], i[2]))
+            #balls_list.append(DetectedCircles(i[0], i[1], i[2]))
             
-    #Field detection 
+    #Field detection
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV) 
     lower_red = np.array([0, 120, 70])
     upper_red = np.array([10, 255, 255])
@@ -97,7 +98,7 @@ def detect(cap):
     lower_red = np.array([170, 120, 70])
     upper_red = np.array([180, 255, 255])
     mask2 = cv2.inRange(hsv, lower_red, upper_red)
-    mask = cv2.bitwise_or(mask1, mask2)
+    mask = cv2.bitwise_or(mask1, mask2)    
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     rectangle_contour = []
     for contour in contours:
@@ -105,7 +106,7 @@ def detect(cap):
      epsilon = 0.05 * cv2.arcLength(contour, True)
      approx = cv2.approxPolyDP(contour, epsilon, True)
       # Check if the contour has 4 vertices and a significant area to be considered a rectangle
-     if len(approx) == 4 and cv2.contourArea(contour) > 1000:  # You can adjust the area threshold as necessary
+     if len(approx) == 4 and cv2.contourArea(contour) > 1 :  # You can adjust the area threshold as necessary
         rectangle_contour.append(contour)
     
     # Find the largest contour for better detection Test 
@@ -114,8 +115,8 @@ def detect(cap):
     if rectangle_contour:
      largest_rectangle = max(rectangle_contour, key=cv2.contourArea)
      # Draw contours on the original image
-     cv2.drawContours(frame, [largest_rectangle], -1, (255, 255, 255), 3)
-     fields_list.append((i[0], i[1], i[2]))
+     cv2.drawContours(frame, rectangle_contour, -1, (255, 255, 255), 3)
+     #fields_list.append((i[0], i[1], i[2]))
     else: 
      print("No field found")
     '''cv2.putText(frame, "field", text_position, cv2.FONT_HERSHEY_SIMPLEX, 
@@ -155,7 +156,8 @@ def detect(cap):
              cv2.drawContours(frame, [largest_triangle_approx], -1, (0, 255, 0), 3)
              cv2.putText(frame, "Robot", (largest_triangle_approx[0][0][0], largest_triangle_approx[0][0][1]), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
              robots_list.append(DetectedRobot(largest_triangle_approx))
-    
+             
+  
     
     
     #Robot detection using the template matching- maybe we have to use another method in the future 
@@ -185,7 +187,7 @@ def detect(cap):
     #cap.release()
     #cv2.destroyAllWindows() 
 
- return balls_list, robots_list, fields_list
+ #return balls_list, robots_list #,fields_list
  
  
 
@@ -196,10 +198,11 @@ def main():
     #if cap is not None and robot_template is not None:
         balls,robot = detect(cap, robot_template) '''
     if cap is not None:
-        balls = detect(cap)
-    print(f"Detected {len(balls)} balls.")
-    for index,ball in enumerate(balls):
-     print(f"Ball {index} at ({ball.x}, {ball.y}) with radius {ball.radius}.")
+        detect(cap)
+        #balls = detect(cap)
+    #print(f"Detected {len(balls)} balls.")
+    #for index,ball in enumerate(balls):
+     #print(f"Ball {index} at ({ball.x}, {ball.y}) with radius {ball.radius}.")
     '''if robot:
      print(f"Detected robot at ({robot.x}, {robot.y}).")
      else:
