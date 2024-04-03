@@ -9,6 +9,7 @@ def open_camera(camera_index=1):
     if not cap.isOpened():
         print(f"No camera found at index {camera_index}- please reconnect your USB-camera")
         return None
+    
     return cap
         
         
@@ -51,6 +52,8 @@ class DetectedRobot:
 
 #def detect(cap,robot_template):
 def detect(cap):
+ cascade_classifier = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
+
  balls_list = [] # List to store the deteced balls 
  robots_list = []
  fields_list = []
@@ -62,31 +65,22 @@ def detect(cap):
         break
     
     #dimensions
-    width = int(cap.get(3))
-    height = int(cap.get(4))
-    image = np.zeros(frame.shape, np.uint8)
-    smaller_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
+    #width = int(cap.get(3))
+    #height = int(cap.get(4))
+    #image = np.zeros(frame.shape, np.uint8)
+    #smaller_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
     # Convert to grayscale for thresholding and circle detection
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    blurred = cv2.GaussianBlur(gray, (9,9),0) 
-    edges = cv2.Canny(blurred, 50, 150)
-    #_, thresholded = cv2.threshold(blurred, 220, 255, cv2.THRESH_BINARY)
 
-    # Detect circles using Hough Circles
-    circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, dp=1.2, minDist=50,
-                                param1=50, param2=30, minRadius=5, maxRadius=30)
-    # Draw circles on the original frame - UI for detection 
-    if circles is not None:
-        circles = np.uint16(np.around(circles))
-        for i in circles[0, :]:
-            # Draw the outer circle
-            cv2.circle(frame,(i[0], i[1]), i[2], (0, 255, 0), 2)
-            # Draw the center of the circle
-            cv2.circle(frame, (i[0], i[1]), 2, (0, 0, 255), 3)
-            circle_text = f"({i[0]}, {i[1]}), Radius: {i[2]}"
-            text_position = (i[0] - i[2], i[1] + i[2] + 10)
-            cv2.putText(frame, circle_text, text_position, cv2.FONT_HERSHEY_SIMPLEX, 
-                0.5, (255, 255, 255), 1, cv2.LINE_AA)
+    # Detect objects using the classifier
+    objects = cascade_classifier.detectMultiScale(gray, 1.1, 4)
+
+    # Draw rectangles around detected objects
+    for (x, y, w, h) in objects:
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)  # Draw green rectangles
+
+    # Display the resulting frame
+    cv2.imshow('frame', frame)
             #balls_list.append(DetectedCircles(i[0], i[1], i[2]))
             
     #Field detection
@@ -130,9 +124,9 @@ def detect(cap):
 
     # Canny edge detection
     edges = cv2.Canny(blurred, 50, 150)'''
-    lower_green = np.array([50, 100, 100])
-    upper_green = np.array([70, 255, 255])
-    maskRobot = cv2.inRange(hsv, lower_green, upper_green)
+    lower_yellow = np.array([20, 100, 100]) 
+    upper_yellow = np.array([35, 255, 255])
+    maskRobot = cv2.inRange(hsv, lower_yellow, upper_yellow)
     maskRobot = cv2.morphologyEx(maskRobot, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
 
 
@@ -156,26 +150,6 @@ def detect(cap):
              cv2.drawContours(frame, [largest_triangle_approx], -1, (0, 255, 0), 3)
              cv2.putText(frame, "Robot", (largest_triangle_approx[0][0][0], largest_triangle_approx[0][0][1]), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
              robots_list.append(DetectedRobot(largest_triangle_approx))
-             
-  
-    
-    
-    #Robot detection using the template matching- maybe we have to use another method in the future 
-    '''for scale in np.linspace(0.5, 1.5, 20):  # Example: scales from 0.5x to 1.5x original size
-            resized_template = cv2.resize(robot_template, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
-            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            gray_template = cv2.cvtColor(resized_template, cv2.COLOR_BGR2GRAY)
-            res = cv2.matchTemplate(gray_frame, gray_template, cv2.TM_CCOEFF_NORMED)
-            threshold = 0.8
-            loc = np.where(res >= threshold)
-            if loc[0].size > 0:  # If there are matches at this scale
-                pt = loc[1][0], loc[0][0]  # Take the first match
-                cv2.rectangle(frame, pt, (pt[0] + resized_template.shape[1], pt[1] + resized_template.shape[0]), (255, 0, 0), 2)
-                robot_position = DetectedRobot(pt[0], pt[1], resized_template.shape[1], resized_template.shape[0])
-                break  # Stop searching once we've found a match'''
-                
-            
-            
             
     # Display and Detect
     cv2.imshow('Frame with Detected Objects-', frame)
