@@ -7,11 +7,20 @@ from pybricks.ev3devices import (Motor, TouchSensor, ColorSensor,
 InfraredSensor, UltrasonicSensor, GyroSensor)
 from pybricks.parameters import Port, Stop, Direction, Button, Color
 from pybricks.media.ev3dev import SoundFile, ImageFile
+from vision import camera_control
 
-def control(balls_list):
+import cv2 
+import numpy as np
+
+
+
+def control():
+    balls_list = camera_control.DetectedCircles
     
-        # Initialize the EV3 Brick.
+    
+    # Initialize the EV3 Brick.
     ev3 = EV3Brick()
+    
 
     # Initialize the motors.
     left_motor = Motor(Port.B,Direction.COUNTERCLOCKWISE)
@@ -19,7 +28,8 @@ def control(balls_list):
     gripper_motor = Motor(Port.A)
     
     # Initialize the drive base.
-    golfBot = DriveBase(left_motor, right_motor, wheel_diameter=55.5, axle_track=104)
+    golfBot = DriveBase(left_motor, right_motor, wheel_diameter=26, axle_track=115)
+    golfBot = camera_control.DetectedRobot
     
     if not balls_list:
         # our logic when no balls detected
