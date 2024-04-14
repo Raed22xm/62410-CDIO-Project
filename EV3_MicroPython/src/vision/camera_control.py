@@ -4,12 +4,11 @@ import numpy as np
 # Open a handle to the USB camera
 #choosing index 1 because we use a laptop with an external usb camera , that's why we choose the second camera 
 
-def open_camera(camera_index=1): 
+def open_camera(camera_index=0): 
     cap = cv2.VideoCapture(camera_index)
     if not cap.isOpened():
         print(f"No camera found at index {camera_index}- please reconnect your USB-camera")
         return None
-    
     return cap
         
         
@@ -52,8 +51,6 @@ class DetectedRobot:
 
 #def detect(cap,robot_template):
 def detect(cap):
- cascade_classifier = cv2.CascadeClassifier('haarcascade_frontalface_default.xml')
-
  balls_list = [] # List to store the deteced balls 
  robots_list = []
  fields_list = []
@@ -71,17 +68,26 @@ def detect(cap):
     #smaller_frame = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
     # Convert to grayscale for thresholding and circle detection
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    blurred = cv2.GaussianBlur(gray, (9,9),0) 
+    edges = cv2.Canny(blurred, 50, 150)
+    #_, thresholded = cv2.threshold(blurred, 220, 255, cv2.THRESH_BINARY)
 
-    # Detect objects using the classifier
-    objects = cascade_classifier.detectMultiScale(gray, 1.1, 4)
-
-    # Draw rectangles around detected objects
-    for (x, y, w, h) in objects:
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)  # Draw green rectangles
-
-    # Display the resulting frame
-    cv2.imshow('frame', frame)
-            #balls_list.append(DetectedCircles(i[0], i[1], i[2]))
+    # Detect circles using Hough Circles
+    circles = cv2.HoughCircles(edges, cv2.HOUGH_GRADIENT, dp=1.2, minDist=50,
+                                param1=50, param2=30, minRadius=5, maxRadius=30)
+    # Draw circles on the original frame - UI for detection 
+    if circles is not None:
+        circles = np.uint16(np.around(circles))
+        for i in circles[0, :]:
+            # Draw the outer circle
+            cv2.circle(frame,(i[0], i[1]), i[2], (0, 255, 0), 2)
+            # Draw the center of the circle
+            cv2.circle(frame, (i[0], i[1]), 2, (0, 0, 255), 3)
+            circle_text = f"({i[0]}, {i[1]}), Radius: {i[2]}"
+            text_position = (i[0] - i[2], i[1] + i[2] + 10)
+            cv2.putText(frame, circle_text, text_position, cv2.FONT_HERSHEY_SIMPLEX, 
+                0.5, (255, 255, 255), 1, cv2.LINE_AA)
+            balls_list.append(DetectedCircles(i[0], i[1], i[2]))
             
     #Field detection
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV) 
@@ -161,7 +167,7 @@ def detect(cap):
     #cap.release()
     #cv2.destroyAllWindows() 
 
- #return balls_list, robots_list #,fields_list
+ return balls_list, robots_list #,fields_list
  
  
 
