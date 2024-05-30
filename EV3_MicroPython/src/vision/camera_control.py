@@ -4,7 +4,7 @@ import numpy as np
 # Open a handle to the USB camera
 #choosing index 1 because we use a laptop with an external usb camera , that's why we choose the second camera 
 
-def open_camera(camera_index=0): 
+def open_camera(camera_index=1): 
     cap = cv2.VideoCapture(camera_index)
     if not cap.isOpened():
         print(f"No camera found at index {camera_index}- please reconnect your USB-camera")
