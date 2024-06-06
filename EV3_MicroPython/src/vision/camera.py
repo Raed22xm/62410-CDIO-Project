@@ -4,6 +4,9 @@ import math
 import json
 import os
 
+def nothing(x):
+    pass
+
 def calculate_distance(point1, point2):
     x1, y1 = point1
     x2, y2 = point2
@@ -11,7 +14,7 @@ def calculate_distance(point1, point2):
 
 def calculate_angle(robot_center, ball_center):
     delta_x = ball_center[0] - robot_center[0]
-    delta_y = ball_center[1] - ball_center[1]
+    delta_y = ball_center[1] - robot_center[1]
     return math.atan2(delta_y, delta_x) * 180 / math.pi
 
 def detect_table_tennis_balls(frame, rect_bottom_left, rect_top_right):
@@ -38,8 +41,13 @@ def detect_table_tennis_balls(frame, rect_bottom_left, rect_top_right):
     return detected_balls
 
 def detect_robots(hsv, frame_width):
-    lower_yellow = np.array([20, 100, 100])
-    upper_yellow = np.array([35, 255, 255])
+    lower_yellow = np.array([cv2.getTrackbarPos('Lower_H', 'Controls'),
+                             cv2.getTrackbarPos('Lower_S', 'Controls'),
+                             cv2.getTrackbarPos('Lower_V', 'Controls')])
+    upper_yellow = np.array([cv2.getTrackbarPos('Upper_H', 'Controls'),
+                             cv2.getTrackbarPos('Upper_S', 'Controls'),
+                             cv2.getTrackbarPos('Upper_V', 'Controls')])
+    
     mask_robot = cv2.inRange(hsv, lower_yellow, upper_yellow)
     kernel = np.ones((5, 5), np.uint8)
     mask_robot = cv2.morphologyEx(mask_robot, cv2.MORPH_OPEN, kernel)
@@ -93,10 +101,43 @@ def detect_field(frame):
         print("No field found")
         return None
 
+def detect_obstacles(hsv):
+    lower_red = np.array([0, 120, 70])
+    upper_red = np.array([10, 255, 255])
+    mask1 = cv2.inRange(hsv, lower_red, upper_red)
+    lower_red = np.array([170, 120, 70])
+    upper_red = np.array([180, 255, 255])
+    mask2 = cv2.inRange(hsv, lower_red, upper_red)
+    mask = cv2.bitwise_or(mask1, mask2)
+    
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    plus_sign_contours = []
+
+    for contour in contours:
+        if cv2.contourArea(contour) < 100:  # Ignore small contours
+            continue
+        epsilon = 0.02 * cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, epsilon, True)
+        # Loosen the criteria to find more potential plus signs
+        if len(approx) >= 8 and len(approx) <= 14:
+            plus_sign_contours.append(approx)
+
+    return plus_sign_contours
+
 def detect_table_tennis_balls_and_robots():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     robots_list = []  
     field_coords = None
+    obstacle_positions = []
+    
+    cv2.namedWindow('Controls')
+    cv2.createTrackbar('Lower_H', 'Controls', 20, 179, nothing)
+    cv2.createTrackbar('Lower_S', 'Controls', 100, 255, nothing)
+    cv2.createTrackbar('Lower_V', 'Controls', 100, 255, nothing)
+    cv2.createTrackbar('Upper_H', 'Controls', 35, 179, nothing)
+    cv2.createTrackbar('Upper_S', 'Controls', 255, 255, nothing)
+    cv2.createTrackbar('Upper_V', 'Controls', 255, 255, nothing)
+
     while True:
         ret, frame = cap.read()
         if not ret:
@@ -117,12 +158,13 @@ def detect_table_tennis_balls_and_robots():
         if detected_robot is not None:
             print("Robot Detected, drawing contours and text...")
             cv2.drawContours(frame, [detected_robot], -1, (0, 255, 0), 3)
-            robot_center = (detected_robot[0][0][0], detected_robot[0][0][1])
+            robot_center = (int(detected_robot[0][0][0]), int(detected_robot[0][0][1]))
             cv2.putText(frame, "Robot", robot_center, 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
             robots_list.append(robot_center)
         else:
             print("No robot detected.")
+        
         detected_balls = detect_table_tennis_balls(frame, rect_bottom_left, rect_top_right)
        
         ball_positions = []
@@ -136,6 +178,16 @@ def detect_table_tennis_balls_and_robots():
                         0.5, (255, 255, 255), 1, cv2.LINE_AA)
             ball_positions.append((center[0], center[1], radius))
         
+        detected_obstacles = detect_obstacles(hsv)
+        obstacles = []
+        for contour in detected_obstacles:
+            cv2.drawContours(frame, [contour], -1, (255, 0, 0), 3)
+            obstacle_center = (int(np.mean(contour[:, 0, 0])), int(np.mean(contour[:, 0, 1])))
+            cv2.putText(frame, "Obstacle", obstacle_center, 
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 0, 0), 2)
+            x, y, w, h = cv2.boundingRect(contour)
+            obstacles.append({"center": (obstacle_center[0], obstacle_center[1]), "bounding_box": (x, y, w, h)})
+        
         os.makedirs('EV3_MicroPython/data/balls_positions', exist_ok=True)
         with open('EV3_MicroPython/data/balls_positions/balls_positions.json', 'w') as f:
             json.dump(ball_positions, f)
@@ -143,16 +195,24 @@ def detect_table_tennis_balls_and_robots():
         os.makedirs('EV3_MicroPython/data/robots_positions', exist_ok=True)
         with open('EV3_MicroPython/data/robots_positions/robots_positions.json', 'w') as f:
             json.dump(robots_list, f)
+            
         
         if field_coords:
             os.makedirs('EV3_MicroPython/data/field_positions', exist_ok=True)
             with open('EV3_MicroPython/data/field_positions/field_positions.json', 'w') as f:
                 json.dump(field_coords, f)
+                
+        os.makedirs('EV3_MicroPython/data/obstacle_positions', exist_ok=True)
+        with open('EV3_MicroPython/data/obstacle_positions/obstacle_positions.json', 'w') as f:
+            json.dump(obstacles, f)        
+           
         
         cv2.imshow("Table Tennis Ball and Robot Detection", frame)
         print("Detected Ball Positions:", ball_positions)
         print("Detected Robot Positions:", robots_list)
         print("Detected Field Coordinates:", field_coords)
+        print("Detected Obstacles:", obstacles)
+        
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     cap.release()
