@@ -1,4 +1,4 @@
-#!/usr/bin/env pybricks-micropython
+
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import Motor
 from pybricks.robotics import DriveBase
