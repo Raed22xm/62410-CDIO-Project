@@ -1,56 +1,44 @@
-import socket
-from ev3dev2.motor import EV3Brick, Motor, DriveBase
-from  ev3dev2.motor import Port, Direction
+from flask import Flask, jsonify
+import json
+import os
 
-# Define the server address and port
-HOST = '172.21.229.121'  # Listen on all available interfaces
-PORT = 65432      # Port to listen on
+app = Flask(__name__)
 
-# Create a socket
-server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+def load_data(file_path):
+    with open(file_path, 'r') as f:
+        return json.load(f)
 
-# Bind the socket to the address and port
-server_socket.bind((HOST, PORT))
+@app.route('/balls', methods=['GET'])
+def get_balls():
+    try:
+        data = load_data('../data/balls_positions/balls_positions.json')
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
-# Start listening for incoming connections
-server_socket.listen()
+@app.route('/robots', methods=['GET'])
+def get_robots():
+    try:
+        data = load_data('../data/robots_positions/robots_positions.json')
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
-print(f"Server listening on {HOST}:{PORT}")
+@app.route('/field', methods=['GET'])
+def get_field():
+    try:
+        data = load_data('../data/field_positions/field_positions.json')
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
-# Accept a connection
-conn, addr = server_socket.accept()
-print(f"Connected by {addr}")
+@app.route('/obstacles', methods=['GET'])
+def get_obstacles():
+    try:
+        data = load_data('../data/obstacle_positions/obstacle_positions.json')
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({'error': str(e)})
 
-# Initialize EV3 Brick and motors
-ev3 = EV3Brick()
-left_motor = Motor(Port.B, Direction.COUNTERCLOCKWISE)
-right_motor = Motor(Port.C, Direction.COUNTERCLOCKWISE)
-gripper_motor = Motor(Port.A)
-golfBot = DriveBase(left_motor, right_motor, wheel_diameter=26, axle_track=115)
-
-try:
-    while True:
-        # Receive data from the client
-        data = conn.recv(1024)
-        if not data:
-            break
-        command = data.decode()
-        print(f"Received {command}")
-
-        # Execute command
-        if command == 'move_forward':
-            golfBot.on_for_degrees(left_motor, 100, 100, brake=False)
-        elif command == 'move_backward':
-            golfBot.on_for_degrees(left_motor, -100, 100, brake=False)
-        elif command == 'grip':
-            gripper_motor.on_for_seconds(50, 2, brake=True)
-        elif command == 'release':
-            gripper_motor.on_for_seconds(-50, 2, brake=True)
-
-        # Send data back to the client
-        conn.sendall(b'Command received')
-
-finally:
-    # Close the connection
-    conn.close()
-    server_socket.close()
+if __name__ == '__main__':
+    app.run(host='0.0.0.0', port=5000)
