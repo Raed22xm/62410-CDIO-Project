@@ -41,7 +41,6 @@ def detect_table_tennis_balls(frame, rect_bottom_left, rect_top_right):
                 if rect_bottom_left[0] < x < rect_top_right[0] and rect_bottom_left[1] < y < rect_top_right[1]:
                     detected_balls.append((x, y, radius))
     return detected_balls
-print("detected balls", detect_table_tennis_balls)
 
 def detect_black_and_yellow_robots(frame, rect_bottom_left, rect_top_right, min_robot_area):
     # Define the lower and upper boundaries for the yellow and black color ranges
@@ -93,10 +92,12 @@ def detect_table_tennis_balls_and_robots():
         detected_balls = detect_table_tennis_balls(frame, rect_bottom_left, rect_top_right)
         # Detect black robots
         yellow_robot, black_robot = detect_black_and_yellow_robots(frame, rect_bottom_left, rect_top_right, min_area)
-        # Draw detected circles for balls
+        # Draw detected circles for balls and add text
         for (x, y, radius) in detected_balls:
             center = (int(x), int(y))
             cv2.circle(frame, center, radius, (0, 255, 0), 2)
+            # Add text for ball position
+            cv2.putText(frame, f"({int(x)}, {int(y)})", (int(x) + 10, int(y) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
         # Draw rectangles for robots
         if yellow_robot is not None:
             top_left, bottom_right = yellow_robot
@@ -115,4 +116,3 @@ def detect_table_tennis_balls_and_robots():
 
 # Call the function to detect table tennis balls and robots from the camera
 detect_table_tennis_balls_and_robots()
-

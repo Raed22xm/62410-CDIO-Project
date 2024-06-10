@@ -124,6 +124,18 @@ def detect_obstacles(hsv):
 
     return plus_sign_contours
 
+def smooth_positions(positions, window_size=5):
+    if len(positions) < window_size:
+        return positions
+    smoothed_positions = []
+    for i in range(len(positions)):
+        start_idx = max(0, i - window_size + 1)
+        window = positions[start_idx:i + 1]
+        avg_x = int(np.mean([pos[0] for pos in window]))
+        avg_y = int(np.mean([pos[1] for pos in window]))
+        smoothed_positions.append((avg_x, avg_y))
+    return smoothed_positions
+
 def detect_table_tennis_balls_and_robots():
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     robots_list = []  
@@ -137,6 +149,9 @@ def detect_table_tennis_balls_and_robots():
     cv2.createTrackbar('Upper_H', 'Controls', 35, 179, nothing)
     cv2.createTrackbar('Upper_S', 'Controls', 255, 255, nothing)
     cv2.createTrackbar('Upper_V', 'Controls', 255, 255, nothing)
+
+    ball_positions_history = []
+    robot_positions_history = []
 
     while True:
         ret, frame = cap.read()
@@ -156,17 +171,17 @@ def detect_table_tennis_balls_and_robots():
         hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
         detected_robot = detect_robots(hsv, frame_width)
         if detected_robot is not None:
-            print("Robot Detected, drawing contours and text...")
-            cv2.drawContours(frame, [detected_robot], -1, (0, 255, 0), 3)
             robot_center = (int(detected_robot[0][0][0]), int(detected_robot[0][0][1]))
+            robot_positions_history.append(robot_center)
+            smoothed_robot_positions = smooth_positions(robot_positions_history)
+            robots_list.append(smoothed_robot_positions[-1])
+            cv2.drawContours(frame, [detected_robot], -1, (0, 255, 0), 3)
             cv2.putText(frame, "Robot", robot_center, 
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
-            robots_list.append(robot_center)
         else:
             print("No robot detected.")
         
         detected_balls = detect_table_tennis_balls(frame, rect_bottom_left, rect_top_right)
-       
         ball_positions = []
         for (x, y, radius) in detected_balls:
             center = (int(x), int(y))
@@ -178,6 +193,9 @@ def detect_table_tennis_balls_and_robots():
                         0.5, (255, 255, 255), 1, cv2.LINE_AA)
             ball_positions.append((center[0], center[1], radius))
         
+        ball_positions_history.append(ball_positions)
+        smoothed_ball_positions = smooth_positions([pos for sublist in ball_positions_history for pos in sublist])
+
         detected_obstacles = detect_obstacles(hsv)
         obstacles = []
         for contour in detected_obstacles:
@@ -190,7 +208,7 @@ def detect_table_tennis_balls_and_robots():
         
         os.makedirs('EV3_MicroPython/data/balls_positions', exist_ok=True)
         with open('EV3_MicroPython/data/balls_positions/balls_positions.json', 'w') as f:
-            json.dump(ball_positions, f)
+            json.dump(smoothed_ball_positions, f)
 
         os.makedirs('EV3_MicroPython/data/robots_positions', exist_ok=True)
         with open('EV3_MicroPython/data/robots_positions/robots_positions.json', 'w') as f:
@@ -208,7 +226,7 @@ def detect_table_tennis_balls_and_robots():
            
         
         cv2.imshow("Table Tennis Ball and Robot Detection", frame)
-        print("Detected Ball Positions:", ball_positions)
+        print("Detected Ball Positions:", smoothed_ball_positions)
         print("Detected Robot Positions:", robots_list)
         print("Detected Field Coordinates:", field_coords)
         print("Detected Obstacles:", obstacles)
