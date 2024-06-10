@@ -1,3 +1,4 @@
+import requests
 from pybricks.hubs import EV3Brick
 from pybricks.ev3devices import Motor
 from pybricks.parameters import Port, Stop
@@ -10,27 +11,36 @@ ev3 = EV3Brick()
 left_motor = Motor(Port.B)
 right_motor = Motor(Port.C)
 
-def move_forward_and_stop(speed, duration):
-    """
-    Move the robot forward at the specified speed for the specified duration, then stop.
+def fetch_data(endpoint):
+    url = f'http://10.209.142.154:5000/{endpoint}'  # Replace with your server's IP if it changes
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        print(f"Failed to fetch {endpoint}")
+        return None
 
-    Args:
-    - speed (int): The speed at which the motors should run (degrees per second).
-    - duration (int): The duration for which the motors should run (milliseconds).
-    """
-    # Set both motors to run at the specified speed
+def move_forward_and_stop(speed, duration):
     left_motor.run(speed)
     right_motor.run(speed)
-    
-    # Wait for the specified duration
     wait(duration)
-    
-    # Stop both motors
     left_motor.stop(Stop.HOLD)
     right_motor.stop(Stop.HOLD)
-
-    # Optional: beep to indicate that the movement is complete
     ev3.speaker.beep()
 
-# Example usage: move forward at 500 degrees per second for 2 seconds
-move_forward_and_stop(500, 2000)
+def main():
+    balls = fetch_data('balls')
+    robots = fetch_data('robots')
+    field = fetch_data('field')
+    obstacles = fetch_data('obstacles')
+    
+    print("Balls:", balls)
+    print("Robots:", robots)
+    print("Field:", field)
+    print("Obstacles:", obstacles)
+
+    # Example usage: move forward at 500 degrees per second for 2 seconds
+    move_forward_and_stop(500, 2000)
+
+if __name__ == '__main__':
+    main()
