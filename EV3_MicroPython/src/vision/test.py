@@ -15,16 +15,11 @@ def calculate_angle(robot_center, ball_center):
     return math.atan2(delta_y, delta_x) * 180 / math.pi
 
 def detect_table_tennis_balls(frame, rect_bottom_left, rect_top_right):
-   
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-   
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
- 
     edges = cv2.Canny(blurred, 0, 100)
     cv2.imshow("Edges", edges)
-    # Find contours in the edge image for ball detection
     ball_contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    # Filter ball contours based on area and circularity
     min_ball_area = 30
     max_ball_area = 200
     min_ball_circularity = 0.5
@@ -43,20 +38,15 @@ def detect_table_tennis_balls(frame, rect_bottom_left, rect_top_right):
     return detected_balls
 
 def detect_black_and_yellow_robots(frame, rect_bottom_left, rect_top_right, min_robot_area):
-    # Define the lower and upper boundaries for the yellow and black color ranges
     lower_yellow = np.array([20, 50, 200])
     upper_yellow = np.array([40, 255, 255])
     lower_black = np.array([0, 0, 0])
     upper_black = np.array([255, 255, 50])
-    # Convert the frame to HSV color space
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-    # Create masks for yellow and black regions
     yellow_mask = cv2.inRange(hsv, lower_yellow, upper_yellow)
     black_mask = cv2.inRange(hsv, lower_black, upper_black)
-    # Find contours for yellow and black regions
     yellow_contours, _ = cv2.findContours(yellow_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     black_contours, _ = cv2.findContours(black_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    # Filter yellow and black contours based on position and size within the specified rectangle
     yellow_robot = None
     black_robot = None
     for contour in yellow_contours:
@@ -101,44 +91,74 @@ def detect_field(frame):
         print("No field found")
         return None
 
+def detect_obstacles(hsv):
+    lower_red = np.array([0, 120, 70])
+    upper_red = np.array([10, 255, 255])
+    mask1 = cv2.inRange(hsv, lower_red, upper_red)
+    lower_red = np.array([170, 120, 70])
+    upper_red = np.array([180, 255, 255])
+    mask2 = cv2.inRange(hsv, lower_red, upper_red)
+    mask = cv2.bitwise_or(mask1, mask2)
+    
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    plus_sign_contours = []
+
+    for contour in contours:
+        if cv2.contourArea(contour) < 100:  
+            continue
+        epsilon = 0.02 * cv2.arcLength(contour, True)
+        approx = cv2.approxPolyDP(contour, epsilon, True)
+        # Loosen the criteria to find more potential plus signs
+        if len(approx) >= 8 and len(approx) <= 14:
+            plus_sign_contours.append(approx)
+
+    return plus_sign_contours
+
 def detect_table_tennis_balls_and_robots():
+    # Open the camera
     cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     # Define the dimensions of the rectangle for ball detection
     rect_bottom_left = (20, 20)
     rect_top_right = (600, 450)  # Initial values (adjust as needed)
     min_area = 500
     while True:
-        # Read a frame from the camera
+    
         ret, frame = cap.read()
         if not ret:
             break
-        # Detect table tennis balls
+  
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+   
         detected_balls = detect_table_tennis_balls(frame, rect_bottom_left, rect_top_right)
-        # Detect black robots
+  
         yellow_robot, black_robot = detect_black_and_yellow_robots(frame, rect_bottom_left, rect_top_right, min_area)
-        # Detect field
+
         field_contour = detect_field(frame)
-        # Draw detected circles for balls and add text
+ 
+        obstacles = detect_obstacles(hsv)
+
         for (x, y, radius) in detected_balls:
             center = (int(x), int(y))
             cv2.circle(frame, center, radius, (0, 255, 0), 2)
-            # Add text for ball position
+ 
             cv2.putText(frame, f"({int(x)}, {int(y)})", (int(x) + 10, int(y) - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-        # Draw rectangles for robots
+
         if yellow_robot is not None:
             top_left, bottom_right = yellow_robot
             cv2.rectangle(frame, top_left, bottom_right, (0, 0, 255), 2)
         if black_robot is not None:
             top_left, bottom_right = black_robot
             cv2.rectangle(frame, top_left, bottom_right, (255, 0, 0), 2)
-        # Display the frame with detected balls, robots, and field
+
+        for contour in obstacles:
+            cv2.drawContours(frame, [contour], -1, (0, 255, 255), 2)
+
         cv2.imshow("Table Tennis Ball and Robot Detection", frame)
-        # Exit if 'q' is pressed
+
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
-    # Release the camera and destroy windows
+
     cap.release()
     cv2.destroyAllWindows()
 
-# Call the function to detect table tennis balls and robots from the camera
 detect_table_tennis_balls_and_robots()
