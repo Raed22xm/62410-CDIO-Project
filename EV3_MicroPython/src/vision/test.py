@@ -79,7 +79,7 @@ def detect_black_and_yellow_robots(frame, rect_bottom_left, rect_top_right, min_
 
 def detect_table_tennis_balls_and_robots():
     # Open the camera
-    cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+    cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
     # Define the dimensions of the rectangle for ball detection
     rect_bottom_left = (20, 20)
     rect_top_right = (600, 450)  # Initial values (adjust as needed)

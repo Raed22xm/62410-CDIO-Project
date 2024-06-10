@@ -15,19 +15,18 @@ import numpy as np
 
 
 def control():
-    balls_list = camera_control.DetectedCircles
+
     
     
-    # Initialize the EV3 Brick.
     ev3 = EV3Brick()
     
 
-    # Initialize the motors.
+
     left_motor = Motor(Port.B,Direction.COUNTERCLOCKWISE)
     right_motor = Motor(Port.C,Direction.COUNTERCLOCKWISE)
     gripper_motor = Motor(Port.A)
     
-    # Initialize the drive base.
+
     golfBot = DriveBase(left_motor, right_motor, wheel_diameter=26, axle_track=115)
     golfBot = camera_control.DetectedRobot
     
