@@ -1,44 +1,23 @@
-from flask import Flask, jsonify
-import json
-import os
+import socket
 
-app = Flask(__name__)
+def start_server():
+    server_address = ('0.0.0.0',47725)  # Use 0.0.0.0 to listen on all network interfaces
 
-def load_data(file_path):
-    with open(file_path, 'r') as f:
-        return json.load(f)
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+        server_socket.bind(server_address)
+        server_socket.listen(1)
+        print('Server listening on {}:{}'.format(*server_address))
 
-@app.route('/balls', methods=['GET'])
-def get_balls():
-    try:
-        data = load_data('../data/balls_positions/balls_positions.json')
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({'error': str(e)})
-
-@app.route('/robots', methods=['GET'])
-def get_robots():
-    try:
-        data = load_data('../data/robots_positions/robots_positions.json')
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({'error': str(e)})
-
-@app.route('/field', methods=['GET'])
-def get_field():
-    try:
-        data = load_data('../data/field_positions/field_positions.json')
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({'error': str(e)})
-
-@app.route('/obstacles', methods=['GET'])
-def get_obstacles():
-    try:
-        data = load_data('../data/obstacle_positions/obstacle_positions.json')
-        return jsonify(data)
-    except Exception as e:
-        return jsonify({'error': str(e)})
+        connection, client_address = server_socket.accept()
+        with connection:
+            print('Connected to:', client_address)
+            while True:
+                command = input("Enter command for EV3 (forward/backward/left/right/exit): ").strip()
+                connection.sendall(command.encode())
+                if command == "exit":
+                    break
+                data = connection.recv(1024)
+                print('Received:', data.decode())
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    start_server()
